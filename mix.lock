@@ -1,0 +1,2 @@
+%{"decompilerl": {:git, "https://github.com/niahoo/decompilerl.git", "71a6a41231bd1b1c637d20154144d08a0ecb1dbb", []},
+  "plain_fsm": {:git, "https://github.com/uwiger/plain_fsm.git", "ae9eca8a8df8f61a32185b06882a55d60e62e904", []}}
