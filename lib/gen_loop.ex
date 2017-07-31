@@ -1,5 +1,5 @@
-
 defmodule PlainFsmRecords do
+  @moduledoc false
   # We use the same records as in plain_fsm code, so a plain_fsm module and a
   # GenLoop module are compatible.
 
@@ -95,6 +95,22 @@ defmodule GenLoop do
     end
   end
 
+  @doc """
+  Behaves just like Kernel.send but accepts atoms or registry tuples on top of
+  pids to identify a process.
+  """
+  @spec send(server, term) :: term
+  def send(server, message) do
+    case whereis(server) do
+      nil ->
+        exit({:noproc, {__MODULE__, :send_to, [server, message]}})
+      pid when pid == self() ->
+        exit({:sending_to_self, {__MODULE__, :send_to, [server, message]}})
+      pid ->
+        Kernel.send(pid, message)
+    end
+  end
+
   @spec cast(server, term) :: term
   defdelegate cast(server, term), to: GenServer
 
@@ -186,6 +202,8 @@ defmodule GenLoop do
         reply: 2,
       ]
 
+      enter_loop_name = opts[:enter] || :enter_loop
+
       spec = [
         id: opts[:id] || __MODULE__,
         start: Macro.escape(opts[:start]) || quote(do: {__MODULE__, :start_link, [arg]}),
@@ -228,24 +246,30 @@ defmodule GenLoop do
       end
 
       @doc false
-      def enter_loop(_) do
+      def unquote(enter_loop_name)(_) do
         fsm_info(sys: fsm_sys(mod: mod)) = Process.get(@fsm_meta_key)
         raise """
-        You must define an enter_loop/1 function in module #{inspect mod}
+        You must define an #{unquote(enter_loop_name)}/1 function in module #{inspect mod}
         according to GenLoop behaviour in order to receive the state returned
         in your init/1 callback.
         """
+      end
+
+      def __gen_loop_enter_loop__(state) do
+        unquote(enter_loop_name)(state)
       end
 
       # defoverridable GenLoop
       defoverridable [
         code_change: 3,
         data_vsn: 0,
-        enter_loop: 1,
         init: 1,
         start_link: 1,
         start_link: 2,
         terminate: 2,
+      ]
+      defoverridable [
+        {enter_loop_name, 1},
       ]
     end
   end
@@ -330,14 +354,15 @@ defmodule GenLoop do
       ])
     end
   end
-  defmacro hibernate(_module, _function, args) do
+  defmacro hibernate(_module, _function, arguments) do
     raise ArgumentError, """
-    GenLoop.hibernate(module, function, arguments) accepts only one argument.
-        Got: #{Macro.to_string(args)} (#{length(args)} arguments)
+    GenLoop.hibernate(module, function, arguments) accepts only one element in arguments.
+        Got: #{Macro.to_string(arguments)} (#{length(arguments)} arguments)
     """
   end
   ## -- Server side handler ---------------------------------------------------
 
+  @doc false
   def init_it(starter, :self, name, mod, args, options),
     do: init_it(starter, self(), name, mod, args, options)
   def init_it(starter, parent, name0, mod, args, options) do
@@ -354,7 +379,7 @@ defmodule GenLoop do
     case mod.init(args) do
       {:ok, state} ->
         :proc_lib.init_ack(starter, {:ok, self()})
-        mod.enter_loop(state)
+        mod.__gen_loop_enter_loop__(state)
       {:stop, reason} ->
         unregister_name(name0)
         :proc_lib.init_ack(starter, {:error, reason})
