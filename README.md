@@ -82,7 +82,7 @@ This section is still to be done, but basically :
 - `receive` must be the last expression in the function.
 
 
-Have a look at [gen_loop_example.ex](https://github.com/niahoo/gen_loop/blob/master/lib/gen_loop_example.ex).
+Have a look at [loop_example.ex](https://github.com/niahoo/gen_loop/blob/master/lib/loop_example.ex).
 
 ## Alternative
 
