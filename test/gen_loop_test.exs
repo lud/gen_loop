@@ -202,9 +202,21 @@ defmodule GenLoopTest do
           false = Process.flag(:trap_exit, true)
           reply(from, :ok)
           enter_loop({:terminate_test, fun})
+          # flush({:terminate_test, fun})
         rcall(from, {:call_fun, fun}) ->
           reply(from, fun.())
           enter_loop(state)
+      end
+    end
+
+    # used for debug purposes
+    def flush(state) do
+      IO.puts "state : #{inspect state}"
+      IO.puts "proc : #{inspect Process.get}"
+      receive do
+        msg ->
+          IO.puts "message : #{inspect msg}"
+          flush(state)
       end
     end
 
@@ -256,8 +268,9 @@ defmodule GenLoopTest do
     Supervisor.terminate_child(sup, TestChild)
     receive do
       {^ref, :shutdown} -> :ok
+      other -> assert(other === {ref, :shutdown}) # always fail ;)
     after
-      1000 -> assert(false = :child_called_terminate)
+      2000 -> assert(false = :child_called_terminate)
     end
   end
 

@@ -298,6 +298,12 @@ defmodule GenLoop do
         :plain_fsm.parent_EXIT(reason, unquote(state_var))
     end
 
+    [other_exit_clause] = quote do
+      {:'EXIT', _from, reason} = msg ->
+        IO.puts "Received : #{inspect msg}, parent is #{inspect plain_fsm_parent}"
+        exit(reason)
+    end
+
     [system_message_clause] = quote do
       {:system, from, req} ->
         :plain_fsm.handle_system_msg(
@@ -309,6 +315,7 @@ defmodule GenLoop do
 
     do_block =
       blocks[:do]
+      |> List.insert_at(0, other_exit_clause)
       |> List.insert_at(0, parent_exit_clause)
       |> List.insert_at(0, system_message_clause)
     # Put the clauses back together with the 'after' clauses
