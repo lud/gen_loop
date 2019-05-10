@@ -9,7 +9,7 @@ defmodule GenLoop.Mixfile do
       receive / sync-call macros and GenServer-like starting, stopping and name
       registration.
       """,
-      version: "0.2.0",
+      version: "0.2.1",
       elixir: "~> 1.4",
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
@@ -38,8 +38,8 @@ defmodule GenLoop.Mixfile do
   defp package() do
     [
       licenses: ["MIT"],
-      maintainers: ["niahoo osef <dev@ooha.in>"],
-      links: %{"Github" => "https://github.com/niahoo/gen_loop"},
+      maintainers: ["Ludovic Demblans <ludovic@demblans.com>"],
+      links: %{"Github" => "https://github.com/lud/gen_loop"},
     ]
   end
 end
