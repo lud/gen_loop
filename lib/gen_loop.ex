@@ -204,7 +204,7 @@ defmodule GenLoop do
 
       enter_loop_name = opts[:enter] || :enter_loop
 
-      spec = [
+      default_child_spec = [
         id: opts[:id] || __MODULE__,
         start: Macro.escape(opts[:start]) || quote(do: {__MODULE__, :start_link, [arg]}),
         restart: opts[:restart] || :permanent,
@@ -214,7 +214,7 @@ defmodule GenLoop do
 
       @doc false
       def child_spec(arg) do
-        %{unquote_splicing(spec)}
+        %{unquote_splicing(default_child_spec)}
       end
 
       defoverridable child_spec: 1
@@ -313,8 +313,17 @@ defmodule GenLoop do
         )
     end
 
+
+    receive_clauses = 
+      case blocks[:do] do
+        # empty receive statement
+        {:__block__, [], []} -> []  
+        list -> list
+      end
+
+    
     do_block =
-      blocks[:do]
+      receive_clauses
       |> List.insert_at(0, other_exit_clause)
       |> List.insert_at(0, parent_exit_clause)
       |> List.insert_at(0, system_message_clause)
