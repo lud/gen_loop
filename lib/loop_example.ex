@@ -6,7 +6,6 @@ defmodule GenLoopExample do
 
   require Logger
 
-
   def run_example() do
     {:ok, sup} = Supervisor.start_link([], strategy: :one_for_one)
     {:ok, _pid} = Supervisor.start_child(sup, __MODULE__.child_spec([]))
@@ -31,6 +30,7 @@ defmodule GenLoopExample do
   def init([:test_ignore]) do
     :ignore
   end
+
   def init([:test_stop]) do
     {:stop, :testing}
   end
@@ -42,15 +42,18 @@ defmodule GenLoopExample do
 
   def idle(stack) do
     Logger.debug("Entered state :idle.")
+
     receive stack do
       :a ->
         Logger.debug("Going to state hibernate before state :a ...")
         hibernate(__MODULE__, :a, [stack])
+
       :b ->
         Logger.debug("Going to state :b ...")
         b(stack)
+
       msg ->
-        Logger.debug("Received msg: #{inspect msg}")
+        Logger.debug("Received msg: #{inspect(msg)}")
         idle(stack)
     end
   end
@@ -58,6 +61,7 @@ defmodule GenLoopExample do
   def a(stack) do
     stack = [:a | stack]
     Logger.debug("Entered state :a.")
+
     receive do
       :b ->
         Logger.debug("Going to hibernate before state :b ...")
@@ -70,6 +74,7 @@ defmodule GenLoopExample do
   def b(stack) do
     stack = [:b | stack]
     Logger.debug("Entered state :b.")
+
     receive do
       :a ->
         Logger.debug("Going to state :a ...")
@@ -91,11 +96,10 @@ defmodule GenLoopExample do
   end
 
   def terminate(reason, stack) do
-    Logger.debug("Terminate, reason: #{inspect reason}, stack:")
+    Logger.debug("Terminate, reason: #{inspect(reason)}, stack:")
+
     stack
-    |> Enum.reverse
+    |> Enum.reverse()
     |> Enum.map(&IO.puts("  " <> to_string(&1)))
   end
-
-
 end

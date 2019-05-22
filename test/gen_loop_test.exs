@@ -12,8 +12,10 @@ defmodule GenLoopTest do
           [h | t] = stack
           reply(from, h)
           enter_loop(t)
+
         rcall(_, :noreply) ->
           enter_loop(stack)
+
         rcast({:push, item}) ->
           enter_loop([item | stack])
       end
@@ -23,22 +25,23 @@ defmodule GenLoopTest do
       # There is a race condition if the agent is
       # restarted too fast and it is registered.
       try do
-        self() |> Process.info(:registered_name) |> elem(1) |> Process.unregister
+        self() |> Process.info(:registered_name) |> elem(1) |> Process.unregister()
       rescue
         _ -> :ok
       end
+
       :ok
     end
   end
 
   test "generates child_spec/1" do
     assert Stack.child_spec([:hello]) == %{
-      id: Stack,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {Stack, :start_link, [[:hello]]},
-      type: :worker
-    }
+             id: Stack,
+             restart: :permanent,
+             shutdown: 5000,
+             start: {Stack, :start_link, [[:hello]]},
+             type: :worker
+           }
 
     defmodule CustomStack do
       use GenLoop,
@@ -49,12 +52,12 @@ defmodule GenLoopTest do
     end
 
     assert CustomStack.child_spec([:hello]) == %{
-      id: :id,
-      restart: :temporary,
-      shutdown: :infinity,
-      start: {:foo, :bar, []},
-      type: :worker
-    }
+             id: :id,
+             restart: :temporary,
+             shutdown: :infinity,
+             start: {:foo, :bar, []},
+             type: :worker
+           }
   end
 
   test "start_link/3" do
@@ -109,20 +112,35 @@ defmodule GenLoopTest do
   @tag capture_log: true
   test "call/3 exit messages" do
     name = :self
-    Process.register self(), name
-    :global.register_name name, self()
+    Process.register(self(), name)
+    :global.register_name(name, self())
     {:ok, pid} = GenLoop.start_link(Stack, [:hello])
     {:ok, stopped_pid} = GenLoop.start(Stack, [:hello])
     GenLoop.stop(stopped_pid)
 
-    assert catch_exit(GenLoop.call(name, :pop, 5000)) == {:calling_self, {GenLoop, :call, [name, :pop, 5000]}}
-    assert catch_exit(GenLoop.call({:global, name}, :pop, 5000)) == {:calling_self, {GenLoop, :call, [{:global, name}, :pop, 5000]}}
-    assert catch_exit(GenLoop.call({:via, :global, name}, :pop, 5000)) == {:calling_self, {GenLoop, :call, [{:via, :global, name}, :pop, 5000]}}
-    assert catch_exit(GenLoop.call(self(), :pop, 5000)) == {:calling_self, {GenLoop, :call, [self(), :pop, 5000]}}
-    assert catch_exit(GenLoop.call(pid, :noreply, 1)) == {:timeout, {GenLoop, :call, [pid, :noreply, 1]}}
-    assert catch_exit(GenLoop.call(nil, :pop, 5000)) == {:noproc, {GenLoop, :call, [nil, :pop, 5000]}}
-    assert catch_exit(GenLoop.call(stopped_pid, :pop, 5000)) == {:noproc, {GenLoop, :call, [stopped_pid, :pop, 5000]}}
-    assert catch_exit(GenLoop.call({:stack, :bogus_node}, :pop, 5000)) == {{:nodedown, :bogus_node}, {GenLoop, :call, [{:stack, :bogus_node}, :pop, 5000]}}
+    assert catch_exit(GenLoop.call(name, :pop, 5000)) ==
+             {:calling_self, {GenLoop, :call, [name, :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call({:global, name}, :pop, 5000)) ==
+             {:calling_self, {GenLoop, :call, [{:global, name}, :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call({:via, :global, name}, :pop, 5000)) ==
+             {:calling_self, {GenLoop, :call, [{:via, :global, name}, :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call(self(), :pop, 5000)) ==
+             {:calling_self, {GenLoop, :call, [self(), :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call(pid, :noreply, 1)) ==
+             {:timeout, {GenLoop, :call, [pid, :noreply, 1]}}
+
+    assert catch_exit(GenLoop.call(nil, :pop, 5000)) ==
+             {:noproc, {GenLoop, :call, [nil, :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call(stopped_pid, :pop, 5000)) ==
+             {:noproc, {GenLoop, :call, [stopped_pid, :pop, 5000]}}
+
+    assert catch_exit(GenLoop.call({:stack, :bogus_node}, :pop, 5000)) ==
+             {{:nodedown, :bogus_node}, {GenLoop, :call, [{:stack, :bogus_node}, :pop, 5000]}}
   end
 
   test "nil name" do
@@ -153,9 +171,10 @@ defmodule GenLoopTest do
     {:ok, _} = GenLoop.start_link(Stack, [:hello, :world], name: :stack)
 
     assert GenLoop.multi_call(:stack, :pop) ==
-           {[{node(), :hello}], []}
+             {[{node(), :hello}], []}
+
     assert GenLoop.multi_call([node(), :foo@bar], :stack, :pop) ==
-           {[{node(), :world}], [:foo@bar]}
+             {[{node(), :world}], [:foo@bar]}
 
     GenLoop.stop(:stack)
   end
@@ -195,14 +214,17 @@ defmodule GenLoopTest do
         rcall(from, :test_hibernate) ->
           reply(from, :ok)
           hibernate(__MODULE__, :waking_up, [state])
+
         rcall(from, :get_state) ->
           reply(from, state)
           enter_loop(state)
+
         rcall(from, {:setup_terminate_test, fun}) when is_function(fun, 1) ->
           false = Process.flag(:trap_exit, true)
           reply(from, :ok)
           enter_loop({:terminate_test, fun})
-          # flush({:terminate_test, fun})
+
+        # flush({:terminate_test, fun})
         rcall(from, {:call_fun, fun}) ->
           reply(from, fun.())
           enter_loop(state)
@@ -211,11 +233,12 @@ defmodule GenLoopTest do
 
     # used for debug purposes
     def flush(state) do
-      IO.puts "state : #{inspect state}"
-      IO.puts "proc : #{inspect Process.get}"
+      IO.puts("state : #{inspect(state)}")
+      IO.puts("proc : #{inspect(Process.get())}")
+
       receive do
         msg ->
-          IO.puts "message : #{inspect msg}"
+          IO.puts("message : #{inspect(msg)}")
           flush(state)
       end
     end
@@ -227,18 +250,17 @@ defmodule GenLoopTest do
     def terminate(reason, {:terminate_test, fun}) when is_function(fun, 1) do
       fun.(reason)
     end
+
     def terminate(reason, state) do
-      IO.puts "Bad termination with"
-              "\n\treason = #{inspect reason}"
-              "\n\tstate = #{inspect state}"
+      IO.puts("Bad termination with")
+      "\n\treason = #{inspect(reason)}"
+      "\n\tstate = #{inspect(state)}"
     end
-
-
   end
 
   test "hibernate and sys messages" do
     name = {:via, :global, :fsm_test}
-    {:ok, _pid} = GenLoop.start_link(Fsm, :init_state, [name: name, debug: [:trace]])
+    {:ok, _pid} = GenLoop.start_link(Fsm, :init_state, name: name, debug: [:trace])
     assert :init_state === GenLoop.call(name, :get_state)
     assert :ok === GenLoop.call(name, :test_hibernate)
     assert :awaken === GenLoop.call(name, :get_state)
@@ -258,20 +280,28 @@ defmodule GenLoopTest do
     children = [
       Supervisor.Spec.worker(Fsm, [:init_state, [name: name, debug: [:trace]]], id: TestChild)
     ]
+
     opts = [strategy: :one_for_one, name: GenLoopTest.Supervisor]
     {:ok, sup} = Supervisor.start_link(children, opts)
     # We set to trap exits and give our pid to receive the confirmation
     ref = make_ref()
-    GenLoop.call(name, {:setup_terminate_test, fn reason ->
-      send(this, {ref, reason})
-    end})
+
+    GenLoop.call(
+      name,
+      {:setup_terminate_test,
+       fn reason ->
+         send(this, {ref, reason})
+       end}
+    )
+
     Supervisor.terminate_child(sup, TestChild)
+
     receive do
       {^ref, :shutdown} -> :ok
-      other -> assert(other === {ref, :shutdown}) # always fail ;)
+      # always fail ;)
+      other -> assert(other === {ref, :shutdown})
     after
       2000 -> assert(false = :child_called_terminate)
     end
   end
-
 end

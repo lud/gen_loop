@@ -11,11 +11,11 @@ defmodule GenLoop.Mixfile do
       """,
       version: "0.2.1",
       elixir: "~> 1.4",
-      build_embedded: Mix.env == :prod,
-      start_permanent: Mix.env == :prod,
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "GenLoop",
-      package: package(),
+      package: package()
     ]
   end
 
@@ -30,8 +30,11 @@ defmodule GenLoop.Mixfile do
   defp deps do
     [
       # {:plain_fsm, "== 1.4.0"}, # Hard version because of records
-      {:plain_fsm, github: "uwiger/plain_fsm", commit: "ae9eca8a8df8f61a32185b06882a55d60e62e904", only: [:dev, :test]},
-      {:ex_doc, "~> 0.14", only: :dev},
+      {:plain_fsm,
+       github: "uwiger/plain_fsm",
+       commit: "ae9eca8a8df8f61a32185b06882a55d60e62e904",
+       only: [:dev, :test]},
+      {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
 
@@ -39,7 +42,7 @@ defmodule GenLoop.Mixfile do
     [
       licenses: ["MIT"],
       maintainers: ["Ludovic Demblans <ludovic@demblans.com>"],
-      links: %{"Github" => "https://github.com/lud/gen_loop"},
+      links: %{"Github" => "https://github.com/lud/gen_loop"}
     ]
   end
 end

@@ -7,20 +7,22 @@ defmodule PlainFsmRecords do
   # work, so we redefine them here. But we have to be in syc with plain_fsm
   # developers.
   require Record
-  Record.defrecord(:fsm_sys, :sys, [
+
+  Record.defrecord(:fsm_sys, :sys,
     cont: :undefined,
     mod: :undefined,
-    name: :undefined,
-  ])
-  Record.defrecord(:fsm_info, :info, [
+    name: :undefined
+  )
+
+  Record.defrecord(:fsm_info, :info,
     parent: :undefined,
     debug: [],
-    sys: {:undefined, :undefined, :undefined}, # fsm_sys() does not work (macro)
-  ])
+    # fsm_sys() does not work (macro)
+    sys: {:undefined, :undefined, :undefined}
+  )
 end
 
 defmodule GenLoop do
-
   @typedoc "Return values of `start*` functions"
   @type on_start :: {:ok, pid} | :ignore | {:error, {:already_started, pid} | term}
 
@@ -31,13 +33,14 @@ defmodule GenLoop do
   @type options :: [option]
 
   @typedoc "Option values used by the `start*` functions"
-  @type option :: {:debug, debug} |
-                  {:name, name} |
-                  {:timeout, timeout} |
-                  {:spawn_opt, Process.spawn_opt}
+  @type option ::
+          {:debug, debug}
+          | {:name, name}
+          | {:timeout, timeout}
+          | {:spawn_opt, Process.spawn_opt()}
 
   @typedoc "Debug options supported by the `start*` functions"
-  @type debug :: [:trace | :log | :statistics | {:log_to_file, Path.t}]
+  @type debug :: [:trace | :log | :statistics | {:log_to_file, Path.t()}]
 
   @typedoc "The server reference"
   @type server :: pid | name | {atom, node}
@@ -50,20 +53,24 @@ defmodule GenLoop do
   @type from :: {pid, tag :: term}
 
   @callback init(args :: term) ::
-      {:ok, state} |
-      {:ok, state, timeout | :hibernate} |
-      :ignore |
-      {:stop, reason :: any} when state: any
+              {:ok, state}
+              | {:ok, state, timeout | :hibernate}
+              | :ignore
+              | {:stop, reason :: any}
+            when state: any
 
   @callback terminate(reason, state :: term) ::
-      term when reason: :normal | :shutdown | {:shutdown, term} | term
+              term
+            when reason: :normal | :shutdown | {:shutdown, term} | term
 
   @callback code_change(old_vsn, state :: term, extra :: term) ::
-      {:ok, new_state :: term} |
-      {:error, reason :: term} when old_vsn: term | {:down, term}
+              {:ok, new_state :: term}
+              | {:error, reason :: term}
+            when old_vsn: term | {:down, term}
 
   @callback format_status(reason, pdict_and_state :: list) ::
-      term when reason: :normal | :terminate
+              term
+            when reason: :normal | :terminate
 
   @callback data_vsn() :: term
 
@@ -81,8 +88,10 @@ defmodule GenLoop do
     case whereis(server) do
       nil ->
         exit({:noproc, {__MODULE__, :call, [server, request, timeout]}})
+
       pid when pid == self() ->
         exit({:calling_self, {__MODULE__, :call, [server, request, timeout]}})
+
       pid ->
         try do
           :gen.call(pid, :"$gen_call", request, timeout)
@@ -104,8 +113,10 @@ defmodule GenLoop do
     case whereis(server) do
       nil ->
         exit({:noproc, {__MODULE__, :send_to, [server, message]}})
+
       pid when pid == self() ->
         exit({:sending_to_self, {__MODULE__, :send_to, [server, message]}})
+
       pid ->
         Kernel.send(pid, message)
     end
@@ -114,7 +125,8 @@ defmodule GenLoop do
   @spec cast(server, term) :: term
   defdelegate cast(server, term), to: GenServer
 
-  @spec multi_call([node], name :: atom, term, timeout) :: {replies :: [{node, term}], bad_nodes :: [node]}
+  @spec multi_call([node], name :: atom, term, timeout) ::
+          {replies :: [{node, term}], bad_nodes :: [node]}
   def multi_call(nodes \\ [node() | Node.list()], name, request, timeout \\ :infinity) do
     :gen_server.multi_call(nodes, name, request, timeout)
   end
@@ -136,12 +148,16 @@ defmodule GenLoop do
     case Keyword.pop(options, :name) do
       {nil, opts} ->
         :gen.start(__MODULE__, link, module, args, opts)
+
       {atom, opts} when is_atom(atom) ->
         :gen.start(__MODULE__, link, {:local, atom}, module, args, opts)
+
       {{:global, _term} = tuple, opts} ->
         :gen.start(__MODULE__, link, tuple, module, args, opts)
+
       {{:via, via_module, _term} = tuple, opts} when is_atom(via_module) ->
         :gen.start(__MODULE__, link, tuple, module, args, opts)
+
       {other, _} ->
         raise ArgumentError, """
         expected :name option to be one of:
@@ -170,13 +186,13 @@ defmodule GenLoop do
 
   defmacro rcall(from, msg) do
     quote do
-      {:'$gen_call', unquote(from), unquote(msg)}
+      {:"$gen_call", unquote(from), unquote(msg)}
     end
   end
 
   defmacro rcast(msg) do
     quote do
-      {:'$gen_cast', unquote(msg)}
+      {:"$gen_cast", unquote(msg)}
     end
   end
 
@@ -193,14 +209,15 @@ defmodule GenLoop do
       @fsm_meta_key fsm_meta_key
 
       # Import the macros/funs for receive
-      import GenLoop, only: [
-        from_pid: 1,
-        hibernate: 3,
-        rcall: 2,
-        rcast: 1,
-        receive: 2,
-        reply: 2,
-      ]
+      import GenLoop,
+        only: [
+          from_pid: 1,
+          hibernate: 3,
+          rcall: 2,
+          rcast: 1,
+          receive: 2,
+          reply: 2
+        ]
 
       enter_loop_name = opts[:enter] || :enter_loop
 
@@ -248,8 +265,9 @@ defmodule GenLoop do
       @doc false
       def unquote(enter_loop_name)(_) do
         fsm_info(sys: fsm_sys(mod: mod)) = Process.get(@fsm_meta_key)
+
         raise """
-        You must define an #{unquote(enter_loop_name)}/1 function in module #{inspect mod}
+        You must define an #{unquote(enter_loop_name)}/1 function in module #{inspect(mod)}
         according to GenLoop behaviour in order to receive the state returned
         in your init/1 callback.
         """
@@ -260,20 +278,18 @@ defmodule GenLoop do
       end
 
       # defoverridable GenLoop
+      defoverridable code_change: 3,
+                     data_vsn: 0,
+                     init: 1,
+                     start_link: 1,
+                     start_link: 2,
+                     terminate: 2
+
       defoverridable [
-        code_change: 3,
-        data_vsn: 0,
-        init: 1,
-        start_link: 1,
-        start_link: 2,
-        terminate: 2,
-      ]
-      defoverridable [
-        {enter_loop_name, 1},
+        {enter_loop_name, 1}
       ]
     end
   end
-
 
   # This macro is heavily inspired (i mean stolen) from
   # ashneyderman/plain_fsm_ex from Github. The main difference is that we do not
@@ -285,61 +301,69 @@ defmodule GenLoop do
   # received.
   defmacro receive(state_var, blocks) do
     {loop_name, arity} = __CALLER__.function
+
     if arity !== 1 do
       raise ArgumentError, bad_arity_msg(__CALLER__)
     end
 
-    define_parent = quote do
-      plain_fsm_parent = :plain_fsm.info(:parent)
-    end
+    define_parent =
+      quote do
+        plain_fsm_parent = :plain_fsm.info(:parent)
+      end
 
-    [parent_exit_clause] = quote do
-      {:'EXIT', ^plain_fsm_parent, reason} ->
-        :plain_fsm.parent_EXIT(reason, unquote(state_var))
-    end
+    [parent_exit_clause] =
+      quote do
+        {:EXIT, ^plain_fsm_parent, reason} ->
+          :plain_fsm.parent_EXIT(reason, unquote(state_var))
+      end
 
-    [other_exit_clause] = quote do
-      {:'EXIT', _from, reason} = msg ->
-        IO.puts "Received : #{inspect msg}, parent is #{inspect plain_fsm_parent}"
-        exit(reason)
-    end
+    [other_exit_clause] =
+      quote do
+        {:EXIT, _from, reason} = msg ->
+          IO.puts("Received : #{inspect(msg)}, parent is #{inspect(plain_fsm_parent)}")
+          exit(reason)
+      end
 
-    [system_message_clause] = quote do
-      {:system, from, req} ->
-        :plain_fsm.handle_system_msg(
+    [system_message_clause] =
+      quote do
+        {:system, from, req} ->
+          :plain_fsm.handle_system_msg(
+            req,
+            from,
+            unquote(state_var),
+            &(unquote(Macro.var(loop_name, Elixir)) / 1)
+          )
+      end
 
-          req, from, unquote(state_var),
-          &unquote(Macro.var(loop_name, Elixir))/1
-        )
-    end
-
-
-    receive_clauses = 
+    receive_clauses =
       case blocks[:do] do
         # empty receive statement
-        {:__block__, [], []} -> []  
+        {:__block__, [], []} -> []
         list -> list
       end
 
-    
     do_block =
       receive_clauses
       |> List.insert_at(0, other_exit_clause)
       |> List.insert_at(0, parent_exit_clause)
       |> List.insert_at(0, system_message_clause)
+
     # Put the clauses back together with the 'after' clauses
     new_blocks = Keyword.put(blocks, :do, do_block)
     whole_receive = {:receive, [], [new_blocks]}
-    _ast = quote do
-      unquote(define_parent)
-      unquote(whole_receive)
-    end
+
+    _ast =
+      quote do
+        unquote(define_parent)
+        unquote(whole_receive)
+      end
   end
 
   defp bad_arity_msg(caller) do
     %{module: mod, function: {fun, _arity}} = caller
+
     """
-    Error when calling #{:receive} in module #{inspect mod}:
+    Error when calling #{:receive} in module #{inspect(mod)}:
 
     The calling function must be of arity 1. It should only accept the current
     state of the process.
@@ -362,25 +386,33 @@ defmodule GenLoop do
   defmacro hibernate(module, function, [_] = args) do
     quote do
       :erlang.hibernate(:plain_fsm, :wake_up, [
-        data_vsn(),         # The old version of code
-        unquote(module),    # Module to call data_vsn() for new version of code
-        unquote(module),    # Module …
-        unquote(function),  # … Function …
-        unquote(args)       # … Arguments to call after wakeup
+        # The old version of code
+        data_vsn(),
+        # Module to call data_vsn() for new version of code
+        unquote(module),
+        # Module …
+        unquote(module),
+        # … Function …
+        unquote(function),
+        # … Arguments to call after wakeup
+        unquote(args)
       ])
     end
   end
+
   defmacro hibernate(_module, _function, arguments) do
     raise ArgumentError, """
     GenLoop.hibernate(module, function, arguments) accepts only one element in arguments.
         Got: #{Macro.to_string(arguments)} (#{length(arguments)} arguments)
     """
   end
+
   ## -- Server side handler ---------------------------------------------------
 
   @doc false
   def init_it(starter, :self, name, mod, args, options),
     do: init_it(starter, self(), name, mod, args, options)
+
   def init_it(starter, parent, name0, mod, args, options) do
     reg_name = name(name0)
     # Copy pasta of plain_fsm init code  storing meta into process dictionary
@@ -396,14 +428,17 @@ defmodule GenLoop do
       {:ok, state} ->
         :proc_lib.init_ack(starter, {:ok, self()})
         mod.__gen_loop_enter_loop__(state)
+
       {:stop, reason} ->
         unregister_name(name0)
         :proc_lib.init_ack(starter, {:error, reason})
         exit(reason)
+
       :ignore ->
         unregister_name(name0)
         :proc_lib.init_ack(starter, :ignore)
         exit(:normal)
+
       other ->
         err = {:error, {:bad_return_value, other}}
         :proc_lib.init_ack(starter, err)
@@ -411,21 +446,27 @@ defmodule GenLoop do
     end
   end
 
-  defp name({:local ,name}),
+  defp name({:local, name}),
     do: name
-  defp name({:global ,name}),
+
+  defp name({:global, name}),
     do: name
-  defp name({:via ,_, name}),
+
+  defp name({:via, _, name}),
     do: name
+
   defp name(pid) when is_pid(pid),
     do: pid
 
   defp unregister_name({:global, name}),
     do: :global.unregister_name(name)
+
   defp unregister_name({:via, mod, name}),
     do: mod.unregister_name(name)
+
   defp unregister_name(pid) when is_pid(pid),
     do: pid
+
   defp unregister_name({:local, name}) do
     Process.unregister(name)
   catch
@@ -433,5 +474,4 @@ defmodule GenLoop do
   rescue
     _ -> :ok
   end
-
 end
