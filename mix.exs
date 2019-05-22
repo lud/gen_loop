@@ -27,11 +27,12 @@ defmodule GenLoop.Mixfile do
   end
 
   defp deps do
-    [
-      # {:plain_fsm, "== 1.4.0"}, # Hard version because of records
-      {:plain_fsm,
-       github: "uwiger/plain_fsm",
-       commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
+    [   
+      # Last Ulf Wiger repository commit   
+      # {:plain_fsm,
+      #  github: "uwiger/plain_fsm",
+      #  commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
+      {:plain_fsm, "~> 1.4"},
       {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
