@@ -9,10 +9,9 @@ defmodule GenLoop.Mixfile do
       receive / sync-call macros and GenServer-like starting, stopping and name
       registration.
       """,
-      version: "0.2.1",
+      version: "1.0.0",
       elixir: "~> 1.4",
       build_embedded: Mix.env() == :prod,
-      start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "GenLoop",
       package: package()
@@ -32,8 +31,7 @@ defmodule GenLoop.Mixfile do
       # {:plain_fsm, "== 1.4.0"}, # Hard version because of records
       {:plain_fsm,
        github: "uwiger/plain_fsm",
-       commit: "ae9eca8a8df8f61a32185b06882a55d60e62e904",
-       only: [:dev, :test]},
+       commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
       {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
