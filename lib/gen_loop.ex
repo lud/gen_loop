@@ -205,6 +205,10 @@ defmodule GenLoop do
 
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, fsm_meta_key: @fsm_meta_key] do
+      if opts[:get_state] == :all do
+        Module.put_attribute(__MODULE__, :__gen_loop_get_state, :all)
+      end
+
       @behaviour GenLoop
       @fsm_meta_key fsm_meta_key
 
@@ -267,9 +271,20 @@ defmodule GenLoop do
         fsm_info(sys: fsm_sys(mod: mod)) = Process.get(@fsm_meta_key)
 
         raise """
-        You must define an #{unquote(enter_loop_name)}/1 function in module #{inspect(mod)}
-        according to GenLoop behaviour in order to receive the state returned
+        According to GenLoop behaviour, 
+        you must define the #{unquote(enter_loop_name)}/1 function
+        in module #{inspect(mod)} to accept the state returned by
         in your init/1 callback.
+
+          def #{unquote(enter_loop_name)}(arg) do
+            # Transition to state
+          end
+
+        You can otherwise give the name of your main loop (or any 
+        other function of arity 1) when using GenLoop
+
+          use GenLoop, enter: :main_loop
+
         """
       end
 
@@ -288,19 +303,29 @@ defmodule GenLoop do
       defoverridable [
         {enter_loop_name, 1}
       ]
+
+      if Module.get_attribute(__MODULE__, :__gen_loop_get_state) == :all do
+        def get_state(pid_or_name, timeout \\ 5000) do
+          IO.puts("get state called in #{__MODULE__}")
+          GenLoop.call(pid_or_name, {:"$gen_loop_get_state", __MODULE__}, timeout)
+        end
+
+        defoverridable get_state: 1, get_state: 2
+      end
     end
   end
 
   # This macro is heavily inspired (i mean stolen) from
-  # ashneyderman/plain_fsm_ex from Github. The main difference is that we do not
-  # use a reference to the argument of the function, but rather require the
-  # state variable to be passed.
+  # ashneyderman/plain_fsm_ex from Github. The main difference is that
+  # we do not use a reference to the argument of the function, but
+  # rather require the state variable to be passed.
   #
-  # I allows to change the state variable before entering the receive blog and
-  # keep the changes when a system message is handled or when a parent EXIT is
-  # received.
+  # It allows to change the state variable before entering the receive
+  # block and keep the changes when a system message is handled or
+  # when a parent EXIT is received.
   defmacro receive(state_var, blocks) do
     {loop_name, arity} = __CALLER__.function
+    module = __CALLER__.module
 
     if arity !== 1 do
       raise ArgumentError, bad_arity_msg(__CALLER__)
@@ -335,6 +360,13 @@ defmodule GenLoop do
           )
       end
 
+    [get_state_clause] =
+      quote do
+        rcall(from, {:"$gen_loop_get_state", __MODULE__}) ->
+          reply(from, {:ok, unquote(state_var)})
+          __MODULE__.unquote(Macro.var(loop_name, Elixir))(unquote(state_var))
+      end
+
     receive_clauses =
       case blocks[:do] do
         # empty receive statement
@@ -343,7 +375,11 @@ defmodule GenLoop do
       end
 
     do_block =
-      receive_clauses
+      if Module.get_attribute(module, :__gen_loop_get_state) == :all do
+        receive_clauses ++ [get_state_clause]
+      else
+        receive_clauses
+      end
       |> List.insert_at(0, other_exit_clause)
       |> List.insert_at(0, parent_exit_clause)
       |> List.insert_at(0, system_message_clause)
@@ -413,7 +449,7 @@ defmodule GenLoop do
   def init_it(starter, :self, name, mod, args, options),
     do: init_it(starter, self(), name, mod, args, options)
 
-  def init_it(starter, parent, name0, mod, args, options) do
+  def init_it(starter, parent, name0, mod, args, _options) do
     reg_name = name(name0)
     # Copy pasta of plain_fsm init code  storing meta into process dictionary
     #
@@ -469,9 +505,9 @@ defmodule GenLoop do
 
   defp unregister_name({:local, name}) do
     Process.unregister(name)
-  catch
-    _ -> :ok
   rescue
+    _ -> :ok
+  catch
     _ -> :ok
   end
 end

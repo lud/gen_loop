@@ -269,6 +269,53 @@ defmodule GenLoopTest do
     assert :status === elem(:sys.get_status(name), 0)
   end
 
+  test "automatic defined get_state" do
+    defmodule FsmStep do
+      use GenLoop, get_state: :all, enter: :step1
+
+      def step1(_state) do
+        state = :in_1
+
+        receive state do
+          :goto2 ->
+            step2(state)
+        end
+      end
+
+      def step2(_state) do
+        state = :in_2
+
+        receive state do
+          :goto1 ->
+            step1(state)
+        end
+      end
+    end
+
+    {:ok, pid} = FsmStep.start_link([])
+    assert {:ok, :in_1} = FsmStep.get_state(pid)
+    send(pid, :goto2)
+    assert {:ok, :in_2} = FsmStep.get_state(pid)
+    send(pid, :goto1)
+    assert {:ok, :in_1} = FsmStep.get_state(pid)
+
+    defmodule NoState do
+      use GenLoop, enter: :main
+
+      def main(state) do
+        receive state do
+          :stop -> exit(:normal)
+        end
+      end
+    end
+
+    {:ok, pid2} = NoState.start_link([])
+
+    assert_raise(UndefinedFunctionError, fn ->
+      NoState.get_state(pid2)
+    end)
+  end
+
   test "terminate" do
     # We use a parent supervisor to start the Fsm. Then we kill terminate the
     # supervisor. The fsm is trapping exit, so its terminate function will be
