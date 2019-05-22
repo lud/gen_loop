@@ -228,6 +228,19 @@ defmodule GenLoopTest do
         rcall(from, {:call_fun, fun}) ->
           reply(from, fun.())
           enter_loop(state)
+
+        rcast(:go_to_classic) ->
+          classic_receive(state)
+      end
+    end
+
+    def classic_receive(state) do
+      receive do
+        rcall(from, :hello) ->
+          reply(from, :hi)
+          classic_receive(state)
+        rcast({:go_to_main_with, new_state}) ->
+          enter_loop(new_state)
       end
     end
 
@@ -267,6 +280,14 @@ defmodule GenLoopTest do
     :sys.replace_state(name, fn {opts, _state} -> {opts, :replaced} end)
     assert :replaced === GenLoop.call(name, :get_state)
     assert :status === elem(:sys.get_status(name), 0)
+  end
+
+  test "rcall macro on receive/1" do
+    {:ok, pid} = GenLoop.start_link(Fsm, :init_state)
+    GenLoop.cast(pid, :go_to_classic)
+    assert :hi = GenLoop.call(pid, :hello)
+    GenLoop.cast(pid, {:go_to_main_with, :a_new_state})
+    assert :a_new_state = GenLoop.call(pid, :get_state)
   end
 
   test "automatic defined get_state" do
