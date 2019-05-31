@@ -1,11 +1,9 @@
 # GenLoop
 
-
-
-This library is an adaptation of awesome Ulf Wiger's library `:plain_fsm` for
+This library is an adaptation of awesome Ulf Wiger's erlang library `:plain_fsm` for
 Elixir. It reuses as `:plain_fsm` code as possible, but adds some features :
 
-- OTP system behaviours for starting processes, stopping processes and name
+- Elixir-like OTP system behaviours for starting processes, stopping processes and name
   registering. That means that you can use the classic naming conventions as in
   `GenServer`:
   ```elixir
@@ -25,10 +23,8 @@ This is still a work in progress, notably the documentation must be completed.
 
 ## Installation
 
-The package can be installed by adding `gen_loop` and `plain_fsm` to your list
-of dependencies in `mix.exs`: We need to add `plain_fsm` because it is old on
-Hex repository, we use a more up-to-date version of the library (mainly to
-handle `terminate/2` callback).
+The package can be installed by adding `gen_loop` to your list
+of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -87,6 +83,17 @@ This section is to be polished, but basically :
   ```
 - `rcall` and `rcast` work also with normal `receive/1`.
 - `receive/1` or `receive/2` must be the last expression in the function. 
+- If you add the `get_state` option when using GenLoop, your module
+  will automatically define a `get_state(pid_or_name)` function
+  and any `receive/2` block will answer to this call with the current
+  process state. 
+  Currently only the `:all` option is supported.
+  It's better to keep this functionality for debug
+  purposes.
+
+ ```
+ use GenLoop, get_state: :all
+ ```
 
 
 Have a look at [loop_example.ex](https://github.com/niahoo/gen_loop/blob/master/lib/loop_example.ex).
