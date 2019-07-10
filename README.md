@@ -29,7 +29,7 @@ of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gen_loop, "~> 0.1.0"},
+    {:gen_loop, "~> 1.0"},
   ]
 end
 ```
