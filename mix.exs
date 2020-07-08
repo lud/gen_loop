@@ -9,7 +9,7 @@ defmodule GenLoop.Mixfile do
       receive / sync-call macros and GenServer-like starting, stopping and name
       registration.
       """,
-      version: "1.0.0",
+      version: "1.0.1",
       elixir: "~> 1.4",
       build_embedded: Mix.env() == :prod,
       deps: deps(),
@@ -27,7 +27,7 @@ defmodule GenLoop.Mixfile do
   end
 
   defp deps do
-    [   
+    [
       # Last Ulf Wiger repository commit   
       # {:plain_fsm,
       #  github: "uwiger/plain_fsm",

@@ -239,6 +239,7 @@ defmodule GenLoopTest do
         rcall(from, :hello) ->
           reply(from, :hi)
           classic_receive(state)
+
         rcast({:go_to_main_with, new_state}) ->
           enter_loop(new_state)
       end
