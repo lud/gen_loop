@@ -306,7 +306,6 @@ defmodule GenLoop do
 
       if Module.get_attribute(__MODULE__, :__gen_loop_get_state) == :all do
         def get_state(pid_or_name, timeout \\ 5000) do
-          IO.puts("get state called in #{__MODULE__}")
           GenLoop.call(pid_or_name, {:"$gen_loop_get_state", __MODULE__}, timeout)
         end
 
@@ -345,7 +344,6 @@ defmodule GenLoop do
     [other_exit_clause] =
       quote do
         {:EXIT, _from, reason} = msg ->
-          IO.puts("Received : #{inspect(msg)}, parent is #{inspect(plain_fsm_parent)}")
           exit(reason)
       end
 
