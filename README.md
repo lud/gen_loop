@@ -1,5 +1,16 @@
 # GenLoop
 
+<!-- rdmx :badges
+    hexpm         : "gen_loop?color=4e2a8e"
+    github_action : "lud/gen_loop/elixir.yaml?label=CI&branch=main"
+    license       : gen_loop
+    -->
+[![hex.pm Version](https://img.shields.io/hexpm/v/gen_loop?color=4e2a8e)](https://hex.pm/packages/gen_loop)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/lud/gen_loop/elixir.yaml?label=CI&branch=main)](https://github.com/lud/gen_loop/actions/workflows/elixir.yaml?query=branch%3Amain)
+[![License](https://img.shields.io/hexpm/l/gen_loop.svg)](https://hex.pm/packages/gen_loop)
+<!-- rdmx /:badges -->
+
+
 **GenLoop** provides a safe, OTP-compliant way to write processes using the "plain receive loop" pattern. It is built directly on top of Ulf Wiger's `:plain_fsm` but adapted for Elixir with some additional conveniences.
 
 It allows you to write processes that use selective receive (unlike `GenServer`) while still handling system messages, parent exits, and other OTP requirements automatically.
@@ -8,13 +19,15 @@ It allows you to write processes that use selective receive (unlike `GenServer`)
 
 Add `gen_loop` to your list of dependencies in `mix.exs`:
 
+<!-- rdmx :app_dep vsn:$app_vsn -->
 ```elixir
 def deps do
   [
-    {:gen_loop, "~> 1.0"}
+    {:gen_loop, "~> 1.0"},
   ]
 end
 ```
+<!-- rdmx /:app_dep -->
 
 <!-- doc_start -->
 

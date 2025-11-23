@@ -15,7 +15,8 @@ defmodule GenLoop.Mixfile do
       deps: deps(),
       name: "GenLoop",
       package: package(),
-      dialyzer: dialyzer()
+      dialyzer: dialyzer(),
+      versioning: versioning()
     ]
   end
 
@@ -29,14 +30,11 @@ defmodule GenLoop.Mixfile do
 
   defp deps do
     [
-      # Last Ulf Wiger repository commit
-      # {:plain_fsm,
-      #  github: "uwiger/plain_fsm",
-      #  commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
       {:plain_fsm, "~> 1.4"},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:readmix, "~> 0.6", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -64,5 +62,29 @@ defmodule GenLoop.Mixfile do
         dialyzer: :test
       ]
     ]
+  end
+
+  defp versioning do
+    [
+      annotate: true,
+      before_commit: [
+        &readmix/1,
+        {:add, "README.md"},
+        &gen_changelog/1,
+        {:add, "CHANGELOG.md"}
+      ]
+    ]
+  end
+
+  def readmix(vsn) do
+    rdmx = Readmix.new(vars: %{app_vsn: vsn})
+    :ok = Readmix.update_file(rdmx, "README.md")
+  end
+
+  defp gen_changelog(vsn) do
+    case System.cmd("git", ["cliff", "--tag", vsn, "-o", "CHANGELOG.md"], stderr_to_stdout: true) do
+      {_, 0} -> IO.puts("Updated CHANGELOG.md with #{vsn}")
+      {out, _} -> {:error, "Could not update CHANGELOG.md:\n\n #{out}"}
+    end
   end
 end
