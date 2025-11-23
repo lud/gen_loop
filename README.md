@@ -23,7 +23,7 @@ Add `gen_loop` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gen_loop, "~> 1.0"},
+    {:gen_loop, "~> 2.0"},
   ]
 end
 ```

@@ -9,7 +9,7 @@ defmodule GenLoop.Mixfile do
       receive / sync-call macros and GenServer-like starting, stopping and name
       registration.
       """,
-      version: "1.0.1",
+      version: "2.0.0",
       elixir: "~> 1.4",
       build_embedded: Mix.env() == :prod,
       deps: deps(),
