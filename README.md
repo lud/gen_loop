@@ -47,6 +47,8 @@ More info in [`plain_fsm` rationale](https://github.com/uwiger/plain_fsm/blob/ma
 
 ## How To ?
 
+<!-- doc_start -->
+
 This section is to be polished, but basically :
 
 - First, `use GenLoop, enter: :my_loop` in your module, where `:my_loop` is the
@@ -82,11 +84,11 @@ This section is to be polished, but basically :
   end
   ```
 - `rcall` and `rcast` work also with normal `receive/1`.
-- `receive/1` or `receive/2` must be the last expression in the function. 
+- `receive/1` or `receive/2` must be the last expression in the function.
 - If you add the `get_state` option when using GenLoop, your module
   will automatically define a `get_state(pid_or_name)` function
   and any `receive/2` block will answer to this call with the current
-  process state. 
+  process state.
   Currently only the `:all` option is supported.
   It's better to keep this functionality for debug
   purposes.

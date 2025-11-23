@@ -23,6 +23,12 @@ defmodule PlainFsmRecords do
 end
 
 defmodule GenLoop do
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- doc_start -->")
+             |> Enum.at(1)
+             |> String.trim()
+
   @typedoc "Return values of `start*` functions"
   @type on_start :: {:ok, pid} | :ignore | {:error, {:already_started, pid} | term}
 
@@ -59,24 +65,10 @@ defmodule GenLoop do
               | {:stop, reason :: any}
             when state: any
 
-  @callback terminate(reason, state :: term) ::
-              term
-            when reason: :normal | :shutdown | {:shutdown, term} | term
-
-  @callback code_change(old_vsn, state :: term, extra :: term) ::
-              {:ok, new_state :: term}
-              | {:error, reason :: term}
-            when old_vsn: term | {:down, term}
-
-  @callback format_status(reason, pdict_and_state :: list) ::
-              term
-            when reason: :normal | :terminate
-
   @callback data_vsn() :: term
 
-  @optional_callbacks format_status: 2
-
-  @fsm_meta_key {:plain_fsm, :info}
+  @doc false
+  def __fsm_meta_key__, do: {:plain_fsm, :info}
 
   @spec abcast([node], name :: atom, term) :: :abcast
   defdelegate abcast(server, term), to: GenServer
@@ -135,12 +127,12 @@ defmodule GenLoop do
   defdelegate reply(from, term), to: GenServer
 
   @spec start(module, any, options) :: on_start
-  def start(module, args, options \\ []) do
+  def start(module, args, options \\ []) when is_atom(module) and is_list(options) do
     do_start(:nolink, module, args, options)
   end
 
   @spec start_link(module, any, options) :: on_start
-  def start_link(module, args, options \\ []) do
+  def start_link(module, args, options \\ []) when is_atom(module) and is_list(options) do
     do_start(:link, module, args, options)
   end
 
@@ -197,20 +189,20 @@ defmodule GenLoop do
   end
 
   defmacro from_pid(from) do
-    # from is {pid, ref}
     quote do
       elem(unquote(from), 0)
     end
   end
 
-  defmacro __using__(opts) do
-    quote location: :keep, bind_quoted: [opts: opts, fsm_meta_key: @fsm_meta_key] do
+  defmacro __using__(opts \\ []) do
+    {enter_loop_name, opts} = Keyword.pop(opts, :enter, :enter_loop)
+
+    quote location: :keep, bind_quoted: [opts: opts, enter_loop_name: enter_loop_name] do
       if opts[:get_state] == :all do
         Module.put_attribute(__MODULE__, :__gen_loop_get_state, :all)
       end
 
       @behaviour GenLoop
-      @fsm_meta_key fsm_meta_key
 
       # Import the macros/funs for receive
       import GenLoop,
@@ -234,44 +226,33 @@ defmodule GenLoop do
       ]
 
       @doc false
-      def child_spec(arg) do
-        %{unquote_splicing(default_child_spec)}
-      end
 
-      defoverridable child_spec: 1
+      def child_spec(init_arg) do
+        default = %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [init_arg]}
+        }
+
+        Supervisor.child_spec(default, unquote(Macro.escape(opts)))
+      end
 
       @doc false
       def init(args) do
         {:ok, args}
       end
 
-      @doc false
-      def terminate(_reason, _state) do
-        :ok
-      end
-
-      @doc false
-      def code_change(_old, state, _extra) do
-        {:ok, state}
-      end
-
-      @doc false
-      def start_link(args, options \\ []) do
-        GenLoop.start_link(__MODULE__, args, options)
-      end
-
       # We set the same default version as in plain_fsm transforms
       @doc false
-      def data_vsn() do
+      def data_vsn do
         0
       end
 
       @doc false
       def unquote(enter_loop_name)(_) do
-        fsm_info(sys: fsm_sys(mod: mod)) = Process.get(@fsm_meta_key)
+        fsm_info(sys: fsm_sys(mod: mod)) = Process.get(GenLoop.__fsm_meta_key__())
 
         raise """
-        According to GenLoop behaviour, 
+        According to GenLoop behaviour,
         you must define the #{unquote(enter_loop_name)}/1 function
         in module #{inspect(mod)} to accept the state returned by
         in your init/1 callback.
@@ -280,7 +261,7 @@ defmodule GenLoop do
             # Transition to state
           end
 
-        You can otherwise give the name of your main loop (or any 
+        You can otherwise give the name of your main loop (or any
         other function of arity 1) when using GenLoop
 
           use GenLoop, enter: :main_loop
@@ -292,13 +273,9 @@ defmodule GenLoop do
         unquote(enter_loop_name)(state)
       end
 
-      # defoverridable GenLoop
-      defoverridable code_change: 3,
+      defoverridable init: 1,
                      data_vsn: 0,
-                     init: 1,
-                     start_link: 1,
-                     start_link: 2,
-                     terminate: 2
+                     child_spec: 1
 
       defoverridable [
         {enter_loop_name, 1}
@@ -456,7 +433,7 @@ defmodule GenLoop do
     #    Process.put(@fsm_meta_key, fsm_info(info, sys: fsm_sys(sys, mod: mod)))
     #
     # but everything is empty so we not just write this
-    Process.put(@fsm_meta_key, fsm_info(parent: parent, sys: fsm_sys(mod: mod, name: reg_name)))
+    Process.put(__fsm_meta_key__(), fsm_info(parent: parent, sys: fsm_sys(mod: mod, name: reg_name)))
     # Call the behaviour init function
     case mod.init(args) do
       {:ok, state} ->

@@ -6,7 +6,7 @@ defmodule GenLoopExample do
 
   require Logger
 
-  def run_example() do
+  def run_example do
     {:ok, sup} = Supervisor.start_link([], strategy: :one_for_one)
     {:ok, _pid} = Supervisor.start_child(sup, __MODULE__.child_spec([]))
     name = {:global, __MODULE__}

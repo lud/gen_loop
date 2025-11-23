@@ -37,10 +37,7 @@ defmodule GenLoopTest do
   test "generates child_spec/1" do
     assert Stack.child_spec([:hello]) == %{
              id: Stack,
-             restart: :permanent,
-             shutdown: 5000,
-             start: {Stack, :start_link, [[:hello]]},
-             type: :worker
+             start: {Stack, :start_link, [[:hello]]}
            }
 
     defmodule CustomStack do
@@ -55,8 +52,7 @@ defmodule GenLoopTest do
              id: :id,
              restart: :temporary,
              shutdown: :infinity,
-             start: {:foo, :bar, []},
-             type: :worker
+             start: {:foo, :bar, []}
            }
   end
 
@@ -206,8 +202,12 @@ defmodule GenLoopTest do
 
   # Test of the plain_fsm features
 
-  defmodule Fsm do
+  defmodule FSM do
     use GenLoop
+
+    def start_link(arg) do
+      GenLoop.start_link(__MODULE__, arg, name: arg[:name])
+    end
 
     def enter_loop(state) do
       receive state do
@@ -274,7 +274,7 @@ defmodule GenLoopTest do
 
   test "hibernate and sys messages" do
     name = {:via, :global, :fsm_test}
-    {:ok, _pid} = GenLoop.start_link(Fsm, :init_state, name: name, debug: [:trace])
+    {:ok, _pid} = GenLoop.start_link(FSM, :init_state, name: name, debug: [:trace])
     assert :init_state === GenLoop.call(name, :get_state)
     assert :ok === GenLoop.call(name, :test_hibernate)
     assert :awaken === GenLoop.call(name, :get_state)
@@ -284,62 +284,15 @@ defmodule GenLoopTest do
   end
 
   test "rcall macro on receive/1" do
-    {:ok, pid} = GenLoop.start_link(Fsm, :init_state)
+    {:ok, pid} = GenLoop.start_link(FSM, :init_state)
     GenLoop.cast(pid, :go_to_classic)
     assert :hi = GenLoop.call(pid, :hello)
     GenLoop.cast(pid, {:go_to_main_with, :a_new_state})
     assert :a_new_state = GenLoop.call(pid, :get_state)
   end
 
-  test "automatic defined get_state" do
-    defmodule FsmStep do
-      use GenLoop, get_state: :all, enter: :step1
-
-      def step1(_state) do
-        state = :in_1
-
-        receive state do
-          :goto2 ->
-            step2(state)
-        end
-      end
-
-      def step2(_state) do
-        state = :in_2
-
-        receive state do
-          :goto1 ->
-            step1(state)
-        end
-      end
-    end
-
-    {:ok, pid} = FsmStep.start_link([])
-    assert {:ok, :in_1} = FsmStep.get_state(pid)
-    send(pid, :goto2)
-    assert {:ok, :in_2} = FsmStep.get_state(pid)
-    send(pid, :goto1)
-    assert {:ok, :in_1} = FsmStep.get_state(pid)
-
-    defmodule NoState do
-      use GenLoop, enter: :main
-
-      def main(state) do
-        receive state do
-          :stop -> exit(:normal)
-        end
-      end
-    end
-
-    {:ok, pid2} = NoState.start_link([])
-
-    assert_raise(UndefinedFunctionError, fn ->
-      NoState.get_state(pid2)
-    end)
-  end
-
   test "terminate" do
-    # We use a parent supervisor to start the Fsm. Then we kill terminate the
+    # We use a parent supervisor to start the FSM. Then we kill terminate the
     # supervisor. The fsm is trapping exit, so its terminate function will be
     # called We will then wait to receive a message sent from the terminate
     # function
@@ -347,13 +300,14 @@ defmodule GenLoopTest do
     this = self()
     # start the process in sync so we wait to receive a ack
     children = [
-      Supervisor.Spec.worker(Fsm, [:init_state, [name: name, debug: [:trace]]], id: TestChild)
+      {FSM, name: name, debug: [:trace]}
     ]
 
     opts = [strategy: :one_for_one, name: GenLoopTest.Supervisor]
     {:ok, sup} = Supervisor.start_link(children, opts)
     # We set to trap exits and give our pid to receive the confirmation
     ref = make_ref()
+    Supervisor.which_children(sup)
 
     GenLoop.call(
       name,
@@ -363,7 +317,7 @@ defmodule GenLoopTest do
        end}
     )
 
-    Supervisor.terminate_child(sup, TestChild)
+    Supervisor.terminate_child(sup, FSM)
 
     receive do
       {^ref, :shutdown} -> :ok

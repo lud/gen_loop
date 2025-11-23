@@ -28,12 +28,14 @@ defmodule GenLoop.Mixfile do
 
   defp deps do
     [
-      # Last Ulf Wiger repository commit   
+      # Last Ulf Wiger repository commit
       # {:plain_fsm,
       #  github: "uwiger/plain_fsm",
       #  commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
       {:plain_fsm, "~> 1.4"},
-      {:ex_doc, "~> 0.14", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:dialyxir, "~> 1.4", only: :dev},
+      {:credo, "~> 1.7", only: :dev}
     ]
   end
 
