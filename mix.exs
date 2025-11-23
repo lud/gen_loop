@@ -14,7 +14,8 @@ defmodule GenLoop.Mixfile do
       build_embedded: Mix.env() == :prod,
       deps: deps(),
       name: "GenLoop",
-      package: package()
+      package: package(),
+      dialyzer: dialyzer()
     ]
   end
 
@@ -33,9 +34,9 @@ defmodule GenLoop.Mixfile do
       #  github: "uwiger/plain_fsm",
       #  commit: "1de45fba4caccbc76df0b109e7581d0fc6a2e67b"},
       {:plain_fsm, "~> 1.4"},
-      {:ex_doc, ">= 0.0.0", only: :dev},
-      {:dialyxir, "~> 1.4", only: :dev},
-      {:credo, "~> 1.7", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -44,6 +45,24 @@ defmodule GenLoop.Mixfile do
       licenses: ["MIT"],
       maintainers: ["Ludovic Demblans <ludovic@demblans.com>"],
       links: %{"Github" => "https://github.com/lud/gen_loop"}
+    ]
+  end
+
+  defp dialyzer do
+    [
+      flags: [:unmatched_returns, :error_handling, :unknown, :extra_return],
+      list_unused_filters: true,
+      plt_add_deps: :app_tree,
+      plt_add_apps: [:ex_unit, :mix],
+      plt_local_path: "_build/plts"
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        dialyzer: :test
+      ]
     ]
   end
 end
