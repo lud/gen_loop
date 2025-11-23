@@ -198,10 +198,6 @@ defmodule GenLoop do
     {enter_loop_name, opts} = Keyword.pop(opts, :enter, :enter_loop)
 
     quote location: :keep, bind_quoted: [opts: opts, enter_loop_name: enter_loop_name] do
-      if opts[:get_state] == :all do
-        Module.put_attribute(__MODULE__, :__gen_loop_get_state, :all)
-      end
-
       @behaviour GenLoop
 
       # Import the macros/funs for receive
@@ -280,14 +276,6 @@ defmodule GenLoop do
       defoverridable [
         {enter_loop_name, 1}
       ]
-
-      if Module.get_attribute(__MODULE__, :__gen_loop_get_state) == :all do
-        def get_state(pid_or_name, timeout \\ 5000) do
-          GenLoop.call(pid_or_name, {:"$gen_loop_get_state", __MODULE__}, timeout)
-        end
-
-        defoverridable get_state: 1, get_state: 2
-      end
     end
   end
 
@@ -301,7 +289,6 @@ defmodule GenLoop do
   # when a parent EXIT is received.
   defmacro receive(state_var, blocks) do
     {loop_name, arity} = __CALLER__.function
-    module = __CALLER__.module
 
     if arity !== 1 do
       raise ArgumentError, bad_arity_msg(__CALLER__)
@@ -335,13 +322,6 @@ defmodule GenLoop do
           )
       end
 
-    [get_state_clause] =
-      quote do
-        rcall(from, {:"$gen_loop_get_state", __MODULE__}) ->
-          reply(from, {:ok, unquote(state_var)})
-          __MODULE__.unquote(Macro.var(loop_name, Elixir))(unquote(state_var))
-      end
-
     receive_clauses =
       case blocks[:do] do
         # empty receive statement
@@ -350,11 +330,7 @@ defmodule GenLoop do
       end
 
     do_block =
-      if Module.get_attribute(module, :__gen_loop_get_state) == :all do
-        receive_clauses ++ [get_state_clause]
-      else
-        receive_clauses
-      end
+      receive_clauses
       |> List.insert_at(0, other_exit_clause)
       |> List.insert_at(0, parent_exit_clause)
       |> List.insert_at(0, system_message_clause)

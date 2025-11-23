@@ -1,113 +1,141 @@
 # GenLoop
 
-This library is an adaptation of awesome Ulf Wiger's erlang library `:plain_fsm` for
-Elixir. It reuses as `:plain_fsm` code as possible, but adds some features :
+**GenLoop** provides a safe, OTP-compliant way to write processes using the "plain receive loop" pattern. It is built directly on top of Ulf Wiger's `:plain_fsm` but adapted for Elixir with some additional conveniences.
 
-- Elixir-like OTP system behaviours for starting processes, stopping processes and name
-  registering. That means that you can use the classic naming conventions as in
-  `GenServer`:
-  ```elixir
-  name = atom_key
-  name = {:global, key}
-  name = {:via, Registry, {AppRegistry, key}}
-  GenLoop.start_link(module, args, name: name)
-  GenLoop.send(name, message)
-  GenLoop.stop(name)
-  ```
-- `receive/2` macro inspired from
-  [ashneyderman/plain_fsm_ex](https://github.com/ashneyderman/plain_fsm_ex) that
-  automatically handles system messages. It handles parent `:EXIT` messages if
-  your process traps exits too.
-
-This is still a work in progress, notably the documentation must be completed.
+It allows you to write processes that use selective receive (unlike `GenServer`) while still handling system messages, parent exits, and other OTP requirements automatically.
 
 ## Installation
 
-The package can be installed by adding `gen_loop` to your list
-of dependencies in `mix.exs`:
+Add `gen_loop` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:gen_loop, "~> 1.0"},
+    {:gen_loop, "~> 1.0"}
   ]
 end
 ```
 
-As of version 1.0.0, [plain_fsm](https://hex.pm/packages/plain_fsm) is
-a normal dependency pulled from hex.pm.
-
-## Why ?
-
-This library is a direct concurrent to `GenServer` or `:gen_statem` : it provides
-selective receive and more freedom but makes it easier to shoot yourself in the
-foot.
-
-More info in [`plain_fsm` rationale](https://github.com/uwiger/plain_fsm/blob/master/doc/plain_fsm.md).
-
-## How To ?
-
 <!-- doc_start -->
 
-This section is to be polished, but basically :
+## Features
 
-- First, `use GenLoop, enter: :my_loop` in your module, where `:my_loop` is the
-  name of a function in your module.
-- Call `GenLoop.start_link(__MODULE__, init_arg)`, you can also give options like
-  `name`, just like a `GenServer`.
-- Maybe `def init(init_arg)` . It should return `{:ok, state}, {:stop, reason} or :ignore`.
-- Define your `my_loop(init_arg)` function where your code now runs in a
-  supervised process.
-- In your state functions, you can use `receive/1` blocks just as normal
-  but you can also use the `receive/2` macro in your main state function.
-  It's best to use the latter on a base state where the most time is spent,
-  in order to handle system messages automatically and keep the classic
-  `receive/1` blocks for transient states.
+- **OTP Compliant**: Handles system messages (`sys` module), parent supervision, and debugging.
+- **Selective Receive**: Use `receive` blocks to pick messages when you want them, enabling complex state machines or protocols to be implemented more naturally.
+- **Convenient Macros**: `rcall/2` and `rcast/1` macros to easily match on `GenLoop.call/2` and `GenLoop.cast/2` messages.
+- **Familiar API**: Uses `start_link/3`, `call/3`, `cast/2` similar to `GenServer`.
 
-  ```elixir
-  def my_loop(state)
-    my_state = change_stuf(state)
-    receive my_state do   # Pass the state if you want to handle system messages
-      rcall(from, msg) -> # Match a message from GenLoop.call/2
-        reply(from, :ok)  # Reply with GenLoop.reply (automatically imported)
-        my_loop(state)    # Don't forget to re-enter the loop
-      rcast(msg) ->       # Match a message from GenLoop.cast
-        state = do_stuff(msg)
-        my_loop(state)
-      msg ->              # Match a mere message from Kernel.send/2 or GenLoop.send/2
-        state = do_stuff(msg)
-        other_loop(state) # You can go to another loop to change state
-    after
-      1000 -> my_loop(state)
-    end
-    # You must not have any code after receive.
+## Usage
+
+To use `GenLoop`, `use GenLoop` in your module. You need to define an entry point function (default is `enter_loop/1` or specified via `enter: :function_name`).
+
+### Basic Example
+
+Here is a simple Stack implementation:
+
+```elixir
+defmodule Stack do
+  use GenLoop
+
+  # Client API
+
+  def start_link(initial_stack) do
+    GenLoop.start_link(__MODULE__, initial_stack, name: __MODULE__)
   end
-  ```
-- `rcall` and `rcast` work also with normal `receive/1`.
-- `receive/1` or `receive/2` must be the last expression in the function.
-- If you add the `get_state` option when using GenLoop, your module
-  will automatically define a `get_state(pid_or_name)` function
-  and any `receive/2` block will answer to this call with the current
-  process state.
-  Currently only the `:all` option is supported.
-  It's better to keep this functionality for debug
-  purposes.
 
- ```
- use GenLoop, get_state: :all
- ```
+  def push(item) do
+    GenLoop.cast(__MODULE__, {:push, item})
+  end
 
+  def pop do
+    GenLoop.call(__MODULE__, :pop)
+  end
 
-Have a look at [loop_example.ex](https://github.com/niahoo/gen_loop/blob/master/lib/loop_example.ex).
+  # Server Callbacks
 
-## Alternative
+  # Optional: init/1 can be used to validate args or set up initial state.
+  # It should return {:ok, state}, {:stop, reason}, or :ignore.
+  def init(initial_stack) do
+    {:ok, initial_stack}
+  end
 
-GenLoop is designed for communicating processes : servers, FSMs, etc. Have a
-look at the [Task](https://hexdocs.pm/elixir/Task.html) module if you just want
-to supervise autonomous processes.
+  # The main loop.
+  # The `receive/2` macro (provided by GenLoop) is used instead of `receive/1`.
+  # It takes the current state as the first argument to handle system messages automatically.
+  def enter_loop(stack) do
+    receive stack do
+      # Match a synchronous call
+      rcall(from, :pop) ->
+        case stack do
+          [head | tail] ->
+            reply(from, head) # Helper to send reply
+            enter_loop(tail)  # Loop with new state
+          [] ->
+            reply(from, nil)
+            enter_loop([])
+        end
 
-GenLoop is not a replacement for GenServer : if your have only one loop in your
-module with a "catch all messages" clause, you woud better use GenServer
-instead of GenLoop.
+      # Match an asynchronous cast
+      rcast({:push, item}) ->
+        enter_loop([item | stack])
 
-You may also use :gen_statem as a good replacement to selective receives.
+      # Match standard messages
+      other ->
+        IO.inspect(other, label: "Unexpected message")
+        enter_loop(stack)
+    end
+  end
+end
+```
+
+### Using the Process
+
+```elixir
+{:ok, _pid} = Stack.start_link([1, 2])
+
+Stack.pop()
+#=> 1
+
+Stack.push(3)
+#=> :ok
+
+Stack.pop()
+#=> 3
+```
+
+## Why GenLoop?
+
+### vs GenServer
+
+`GenServer` is the standard abstraction for client-server relations. However, it forces you to handle every message in a callback (`handle_call`, `handle_info`, etc.). This is great for most cases, but can be cumbersome for complex state machines where the set of expected messages changes depending on the state.
+
+`GenLoop` allows you to write a "plain" recursive loop with `receive`, so you can wait for specific messages at specific times (selective receive).
+
+### vs :gen_statem
+
+`:gen_statem` is the OTP standard for state machines. It is very powerful but can be verbose. `GenLoop` offers a middle ground: it's simpler and feels more like writing a raw Elixir process, but with the safety net of OTP compliance.
+
+## Advanced Usage
+
+### Custom Entry Point
+
+You can specify a different entry function name:
+
+```elixir
+use GenLoop, enter: :my_loop
+
+def my_loop(state) do
+  # ...
+end
+```
+
+### Handling System Messages
+
+The `receive state do ... end` macro is the magic that makes your loop OTP-compliant. It expands to a `receive` block that also includes clauses for handling system messages (like `sys.get_state`, `sys.suspend`, etc.) and parent exit signals.
+
+If you want to handle everything manually (not recommended unless you know what you are doing), you can use the standard `receive do ... end`, but your process will not respond to standard OTP system calls.
+
+## Acknowledgements
+
+This library is built on top of [`:plain_fsm`](https://github.com/uwiger/plain_fsm) by Ulf Wiger.
+It also draws inspiration from [`plain_fsm_ex`](https://github.com/ashneyderman/plain_fsm_ex) by ashneyderman.

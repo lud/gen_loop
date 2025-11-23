@@ -278,6 +278,11 @@ defmodule GenLoopTest do
     assert :init_state === GenLoop.call(name, :get_state)
     assert :ok === GenLoop.call(name, :test_hibernate)
     assert :awaken === GenLoop.call(name, :get_state)
+
+    # :sys.get_state should work too, but we follow :plain_fms, it does not just
+    # return the state but also the options for :plain_fsm
+    assert {_, :awaken} = :sys.get_state(name)
+
     :sys.replace_state(name, fn {opts, _state} -> {opts, :replaced} end)
     assert :replaced === GenLoop.call(name, :get_state)
     assert :status === elem(:sys.get_status(name), 0)
