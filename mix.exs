@@ -34,7 +34,7 @@ defmodule GenLoop.Mixfile do
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:readmix, "~> 0.6", only: [:dev, :test], runtime: false}
+      {:readmix, "~> 0.7", only: [:dev, :test], runtime: false}
     ]
   end
 
