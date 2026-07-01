@@ -70,11 +70,34 @@ defmodule GenLoop do
   @doc false
   def __fsm_meta_key__, do: {:plain_fsm, :info}
 
+  @doc """
+  Sends an asynchronous broadcast to the named server on all connected nodes
+  and the local node.
+
+  Delegates to `GenServer.abcast/2`. Always returns `:abcast`.
+  """
   @spec abcast([node], name :: atom, term) :: :abcast
   defdelegate abcast(server, term), to: GenServer
+
+  @doc """
+  Sends an asynchronous broadcast to the named server on the given `nodes`.
+
+  Delegates to `GenServer.abcast/3`. Always returns `:abcast`.
+  """
   defdelegate abcast(nodes, server, term), to: GenServer
 
-  # Cannot defdelegate because of __MODULE__
+  @doc """
+  Sends a synchronous request to the `server` and waits for its reply.
+
+  Works like `GenServer.call/3`, but the request is delivered to a `GenLoop`
+  process where it is matched with the `rcall/2` macro inside a `receive/2`
+  block, and answered with `reply/2`.
+
+  `server` can be a pid, a registered name, or any of the `t:server/0` forms.
+  The call raises if `server` resolves to the calling process itself, and
+  exits if no process is found or if the callee does not reply within
+  `timeout` milliseconds (defaults to `5000`).
+  """
   @spec call(server, term, timeout) :: term
   def call(server, request, timeout \\ 5000) do
     case whereis(server) do
@@ -114,23 +137,62 @@ defmodule GenLoop do
     end
   end
 
+  @doc """
+  Sends an asynchronous request to the `server`.
+
+  Delegates to `GenServer.cast/2` and returns `:ok` immediately. The message is
+  matched with the `rcast/1` macro inside the target loop's `receive/2` block.
+  """
   @spec cast(server, term) :: term
   defdelegate cast(server, term), to: GenServer
 
+  @doc """
+  Sends a synchronous request to the named server on several nodes and collects
+  their replies.
+
+  `nodes` defaults to the local node plus every connected node. `name` must be
+  the locally registered name of the server on each node. Returns a tuple of the
+  gathered `{node, reply}` pairs and the list of nodes that did not reply within
+  `timeout` (defaults to `:infinity`).
+  """
   @spec multi_call([node], name :: atom, term, timeout) ::
           {replies :: [{node, term}], bad_nodes :: [node]}
   def multi_call(nodes \\ [node() | Node.list()], name, request, timeout \\ :infinity) do
     :gen_server.multi_call(nodes, name, request, timeout)
   end
 
+  @doc """
+  Replies to a `call/3` request.
+
+  `from` is the client reference bound by the `rcall/2` macro on the server side.
+  Delegates to `GenServer.reply/2` and returns `:ok`.
+  """
   @spec reply(from, term) :: :ok
   defdelegate reply(from, term), to: GenServer
 
+  @doc """
+  Starts a `GenLoop` process without linking it to the caller.
+
+  Takes the callback `module`, the `args` term passed to its `c:init/1`
+  callback, and the start `t:options/0` (such as `:name`, `:timeout`, or
+  `:debug`). Returns a `t:on_start/0` value.
+
+  Use `start_link/3` instead when the process should be supervised.
+  """
   @spec start(module, any, options) :: on_start
   def start(module, args, options \\ []) when is_atom(module) and is_list(options) do
     do_start(:nolink, module, args, options)
   end
 
+  @doc """
+  Starts a `GenLoop` process linked to the caller.
+
+  Takes the callback `module`, the `args` term passed to its `c:init/1`
+  callback, and the start `t:options/0` (such as `:name`, `:timeout`, or
+  `:debug`). Returns a `t:on_start/0` value.
+
+  This is the function to call from a supervisor child spec.
+  """
   @spec start_link(module, any, options) :: on_start
   def start_link(module, args, options \\ []) when is_atom(module) and is_list(options) do
     do_start(:link, module, args, options)
@@ -162,11 +224,38 @@ defmodule GenLoop do
     end
   end
 
+  @doc """
+  Stops the `server` with reason `:normal`.
+
+  Delegates to `GenServer.stop/1` and returns `:ok` once the process has
+  terminated.
+  """
   @spec stop(server, reason :: term, timeout) :: :ok
   defdelegate stop(server), to: GenServer
+
+  @doc """
+  Stops the `server` with the given exit `reason`.
+
+  Delegates to `GenServer.stop/2` and returns `:ok` once the process has
+  terminated.
+  """
   defdelegate stop(server, reason), to: GenServer
+
+  @doc """
+  Stops the `server` with the given exit `reason`, waiting at most `timeout`
+  milliseconds.
+
+  Delegates to `GenServer.stop/3`. Exits with `:timeout` if the process does not
+  terminate in time.
+  """
   defdelegate stop(server, reason, timeout), to: GenServer
 
+  @doc """
+  Returns the pid of the process registered under `name`, or `nil` when no such
+  process exists.
+
+  Delegates to `GenServer.whereis/1` and accepts the same name forms.
+  """
   @spec whereis(server) :: pid | {atom, node} | nil
   defdelegate whereis(name), to: GenServer
 
@@ -176,18 +265,46 @@ defmodule GenLoop do
 
   # -- Macros -----------------------------------------------------------------
 
+  @doc """
+  Matches a message sent by `call/3` inside a `receive/2` block.
+
+  Binds the client reference to `from`, which is later passed to `reply/2`, and
+  matches the request against `msg`.
+
+      receive state do
+        rcall(from, :pop) ->
+          reply(from, hd(state))
+          loop(tl(state))
+      end
+  """
   defmacro rcall(from, msg) do
     quote do
       {:"$gen_call", unquote(from), unquote(msg)}
     end
   end
 
+  @doc """
+  Matches a message sent by `cast/2` inside a `receive/2` block.
+
+  Matches the cast payload against `msg`.
+
+      receive state do
+        rcast({:push, item}) ->
+          loop([item | state])
+      end
+  """
   defmacro rcast(msg) do
     quote do
       {:"$gen_cast", unquote(msg)}
     end
   end
 
+  @doc """
+  Returns the pid of the client from a `t:from/0` reference bound by `rcall/2`.
+
+  Useful when the loop needs the caller's pid, for instance to monitor it,
+  rather than only replying to it with `reply/2`.
+  """
   defmacro from_pid(from) do
     quote do
       elem(unquote(from), 0)
@@ -287,6 +404,32 @@ defmodule GenLoop do
   # It allows to change the state variable before entering the receive
   # block and keep the changes when a system message is handled or
   # when a parent EXIT is received.
+  @doc """
+  Waits for messages while keeping the process OTP-compliant.
+
+  Use this macro in place of the standard `Kernel.SpecialForms.receive/1` inside
+  a loop function of arity 1. `state_var` is the current process state, and
+  `blocks` holds the usual `do`/`after` clauses.
+
+  On top of the clauses you write, the macro injects clauses that handle system
+  messages (the `:sys` protocol used by `call/3`, debugging, and code change)
+  and parent exit signals, passing `state_var` along so those handlers can
+  resume the loop with the current state. Match `call/3` and `cast/2` messages
+  with the `rcall/2` and `rcast/1` macros.
+
+  The enclosing function must take exactly one argument, the state, otherwise a
+  compile-time `ArgumentError` is raised.
+
+      def loop(state) do
+        receive state do
+          rcast({:push, item}) ->
+            loop([item | state])
+        after
+          5000 ->
+            loop(state)
+        end
+      end
+  """
   defmacro receive(state_var, blocks) do
     {loop_name, arity} = __CALLER__.function
 
@@ -370,6 +513,24 @@ defmodule GenLoop do
 
   # plain_fsm require that the function has only one argument in order to call
   # code_change with state.
+  @doc """
+  Hibernates the process and resumes in a loop function when a message arrives.
+
+  Wraps `:erlang.hibernate/3` through `:plain_fsm`, so the process state is
+  restored (running `c:code_change/3` when the code version changed) before the
+  loop continues. `module` and `function` name the loop function to wake up in,
+  and `args` must be a one-element list holding the state to resume with.
+
+      def loop(state) do
+        receive state do
+          rcast(:idle) ->
+            hibernate(__MODULE__, :loop, [state])
+        end
+      end
+
+  Passing an `args` list with anything other than one element raises an
+  `ArgumentError`.
+  """
   defmacro hibernate(module, function, [_] = args) do
     quote do
       :erlang.hibernate(:plain_fsm, :wake_up, [
