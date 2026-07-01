@@ -14,6 +14,7 @@ defmodule GenLoop.Mixfile do
       build_embedded: Mix.env() == :prod,
       deps: deps(),
       name: "GenLoop",
+      source_url: "https://github.com/lud/gen_loop",
       package: package(),
       dialyzer: dialyzer(),
       versioning: versioning()
@@ -31,9 +32,8 @@ defmodule GenLoop.Mixfile do
   defp deps do
     [
       {:plain_fsm, "~> 1.4"},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      # Dev
+      {:libdev, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:readmix, "~> 0.6", only: [:dev, :test], runtime: false}
     ]
   end

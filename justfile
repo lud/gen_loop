@@ -1,11 +1,8 @@
-install:
+_mix_deps:
   mix deps.get
 
 format:
   mix format --migrate
-
-_git_status:
-    git status
 
 test:
   mix test --warnings-as-errors
@@ -19,4 +16,10 @@ dialyzer:
 credo:
   mix credo
 
-check: install format compile-warnings test credo dialyzer _git_status
+_libdev_check:
+  mix libdev.check
+
+_git_status:
+  git status
+
+check: _mix_deps format _libdev_check _git_status
